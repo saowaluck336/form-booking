@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INTO THE FOREST - Booking System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-button.active { 
+            background-color: #065f46; 
+            color: white; 
+        }
+        @media print {
+            .no-print { display: none !important; }
+            body { 
+                background: white !important; 
+                margin: 0 !important;
+                padding: 0 !important;
+                font-size: 12px !important;
+            }
+            .print-header { display: block !important; }
+            .print-page { 
+                width: 210mm; 
+                min-height: 297mm; 
+                margin: 0; 
+                padding: 15mm;
+                box-sizing: border-box;
+                page-break-after: always;
+            }
+            table { 
+                font-size: 9px !important; 
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+            th, td { 
+                padding: 3px !important; 
+                border: 1px solid #000 !important;
+                text-align: left !important;
+            }
+            th { 
+                background-color: #064e3b !important; 
+                color: white !important;
+                font-weight: bold !important;
+            }
+            .print-summary-stats {
+                display: flex !important;
+                justify-content: space-around !important;
+                margin: 10px 0 !important;
+                font-size: 10px !important;
+            }
+            .print-summary-stats div {
+                text-align: center !important;
+                padding: 5px !important;
+                border: 1px solid #ccc !important;
+            }
+        }
+        
+        .print-preview-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            display: none;
+            overflow-y: auto;
+        }
+        
+        .print-preview-content {
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
+            margin: 20px auto;
+            padding: 15mm;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        
+        .print-preview-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            display: flex;
+            gap: 10px;
+        }
+        .print-header { display: none; }
+        .forest-green { background-color: #064e3b; }
+        .forest-light { background-color: #065f46; }
+        .forest-lighter { background-color: #047857; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <div class="forest-green text-white p-6 shadow-lg">
+        <h1 class="text-3xl font-bold text-center">INTO THE FOREST</h1>
+        <p class="text-center text-green-200 mt-2">ระบบจัดการการจอง</p>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex space-x-1">
+                <button onclick="showTab('booking')" class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-green-800 border-b-2 border-transparent hover:border-green-500 active" id="tab-booking">
+                    ลงบันทึกการจอง
+                </button>
+                <button onclick="showTab('pending')" class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-green-800 border-b-2 border-transparent hover:border-green-500" id="tab-pending">
+                    รอใช้บริการ
+                </button>
+                <button onclick="showTab('completed')" class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-green-800 border-b-2 border-transparent hover:border-green-500" id="tab-completed">
+                    ใช้บริการแล้ว
+                </button>
+                <button onclick="showTab('summary')" class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-green-800 border-b-2 border-transparent hover:border-green-500" id="tab-summary">
+                    สรุปการจองทั้งหมด
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Contents -->
+    <div class="max-w-7xl mx-auto p-6">
+        <!-- Tab 1: Booking Form -->
+        <div id="booking" class="tab-content active">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <h2 class="text-2xl font-bold text-green-800 mb-6">ลงบันทึกการจอง</h2>
+                <form id="bookingForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">วันที่จอง</label>
+                        <input type="date" id="bookingDate" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">วันที่ใช้บริการ</label>
+                        <input type="date" id="serviceDate" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อลูกค้า</label>
+                        <input type="text" id="customerName" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">บริษัท</label>
+                        <input type="text" id="company" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">จำนวน</label>
+                        <input type="number" id="quantity" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">โซนที่จอง</label>
+                        <input type="text" id="zone" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ยอดเต็ม</label>
+                        <input type="number" id="totalAmount" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">มัดจำแล้ว</label>
+                        <input type="number" id="deposit" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เบอร์ติดต่อ</label>
+                        <input type="tel" id="phone" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ไฟล์แนบ</label>
+                        <input type="file" id="attachedFile" accept=".pdf,.xlsx,.xls" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ</label>
+                        <textarea id="notes" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="flex items-center space-x-3">
+                            <input type="checkbox" id="waitingService" class="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                            <span class="text-sm font-medium text-gray-700">รอใช้บริการ</span>
+                        </label>
+                    </div>
+                    <div class="md:col-span-2">
+                        <button type="submit" class="w-full forest-green text-white py-3 px-6 rounded-lg hover:bg-green-900 transition duration-200 font-medium">
+                            บันทึกข้อมูล
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tab 2: Pending Services -->
+        <div id="pending" class="tab-content">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <h2 class="text-2xl font-bold text-green-800 mb-6">รอใช้บริการ</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full table-auto border-collapse">
+                        <thead class="forest-green text-white">
+                            <tr>
+                                <th class="border border-green-600 px-4 py-3 text-left">วันที่จอง</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">วันที่ใช้บริการ</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">ชื่อลูกค้า</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">บริษัท</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">จำนวน</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">โซน</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">ยอดเต็ม</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">มัดจำ</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">เบอร์</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">ไฟล์</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">หมายเหตุ</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">ใช้บริการแล้ว</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pendingTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Completed Services -->
+        <div id="completed" class="tab-content">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <h2 class="text-2xl font-bold text-green-800 mb-6">ใช้บริการแล้ว</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full table-auto border-collapse">
+                        <thead class="forest-green text-white">
+                            <tr>
+                                <th class="border border-green-600 px-4 py-3 text-left">วันที่จอง</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">วันที่ใช้บริการ</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">ชื่อลูกค้า</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">บริษัท</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">จำนวน</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">โซน</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">ยอดเต็ม</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">มัดจำ</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">เบอร์</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">ไฟล์</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="completedTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Summary -->
+        <div id="summary" class="tab-content">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-green-800">สรุปการจองทั้งหมด</h2>
+                    <button onclick="printSummary()" class="no-print forest-green text-white px-6 py-2 rounded-lg hover:bg-green-900 transition duration-200">
+                        🖨️ พิมพ์รายงาน
+                    </button>
+                </div>
+                
+                <div class="no-print grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ปี</label>
+                        <select id="yearFilter" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                            <option value="">ทั้งหมด</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เดือน</label>
+                        <select id="monthFilter" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                            <option value="">ทั้งหมด</option>
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">สรุปบริษัทซ้ำ</label>
+                        <div id="companyDuplicates" class="p-3 border border-gray-300 rounded-lg bg-gray-50 max-h-32 overflow-y-auto">
+                            <!-- Company duplicates will be shown here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary Statistics Blocks -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+                        <h3 class="text-lg font-semibold text-blue-800 mb-2">จำนวนรายการ</h3>
+                        <p class="text-3xl font-bold text-blue-600" id="totalItems">0</p>
+                        <p class="text-sm text-blue-500">รายการ</p>
+                    </div>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                        <h3 class="text-lg font-semibold text-green-800 mb-2">รวมยอดเต็ม</h3>
+                        <p class="text-3xl font-bold text-green-600" id="totalSumBlock">0</p>
+                        <p class="text-sm text-green-500">บาท</p>
+                    </div>
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                        <h3 class="text-lg font-semibold text-yellow-800 mb-2">รวมยอดมัดจำ</h3>
+                        <p class="text-3xl font-bold text-yellow-600" id="depositSumBlock">0</p>
+                        <p class="text-sm text-yellow-500">บาท</p>
+                    </div>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                        <h3 class="text-lg font-semibold text-red-800 mb-2">รวมยอดคงเหลือ</h3>
+                        <p class="text-3xl font-bold text-red-600" id="remainingSumBlock">0</p>
+                        <p class="text-sm text-red-500">บาท</p>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <div class="print-header">
+                        <div class="text-center mb-6">
+                            <h1 class="text-2xl font-bold">INTO THE FOREST</h1>
+                            <h2 class="text-xl">รายงานสรุปการจองทั้งหมด</h2>
+                            <p class="text-gray-600">วันที่พิมพ์: <span id="printDate"></span></p>
+                            <div class="print-summary-stats" style="display: none;">
+                                <div>
+                                    <strong>จำนวนรายการ:</strong><br>
+                                    <span id="printTotalItems">0</span> รายการ
+                                </div>
+                                <div>
+                                    <strong>รวมยอดเต็ม:</strong><br>
+                                    <span id="printTotalSum">0</span> บาท
+                                </div>
+                                <div>
+                                    <strong>รวมมัดจำ:</strong><br>
+                                    <span id="printDepositSum">0</span> บาท
+                                </div>
+                                <div>
+                                    <strong>รวมคงเหลือ:</strong><br>
+                                    <span id="printRemainingSum">0</span> บาท
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <table class="w-full table-auto border-collapse">
+                        <thead class="forest-green text-white">
+                            <tr>
+                                <th class="border border-green-600 px-4 py-3 text-left">วันที่จอง</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">วันที่ใช้บริการ</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">สถานะ</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">ชื่อลูกค้า</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">บริษัท</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">จำนวน</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">โซน</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">ยอดเต็ม</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">มัดจำ</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">คงเหลือ</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">เบอร์</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">ไฟล์</th>
+                                <th class="border border-green-600 px-4 py-3 text-left">หมายเหตุ</th>
+                                <th class="border border-green-600 px-4 py-3 text-left no-print">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Preview Modal -->
+    <div id="printPreviewModal" class="print-preview-modal">
+        <div class="print-preview-controls">
+            <button onclick="actualPrint()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                🖨️ พิมพ์
+            </button>
+            <button onclick="closePrintPreview()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                ✕ ปิด
+            </button>
+        </div>
+        <div class="print-preview-content" id="printPreviewContent">
+            <!-- Print content will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let bookingData = JSON.parse(localStorage.getItem('bookingData')) || [];
+        let fileStorage = JSON.parse(localStorage.getItem('fileStorage')) || {};
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDataFromGoogleSheets();
+            populateYearFilter();
+            populateCompanyFilter();
+            updateAllTables();
+        });
+
+        // Tab switching functionality
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        // Form submission
+        document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const waitingService = document.getElementById('waitingService').checked;
+            if (!waitingService) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'กรุณาติ๊กเครื่องหมาย',
+                    text: 'กรุณาติ๊กเครื่องหมาย "รอใช้บริการ" เพื่อบันทึกข้อมูล'
+                });
+                return;
+            }
+
+            // Handle file upload
+            let fileName = '';
+            let fileData = '';
+            const fileInput = document.getElementById('attachedFile');
+            if (fileInput.files[0]) {
+                fileName = fileInput.files[0].name;
+                fileData = await fileToBase64(fileInput.files[0]);
+                fileStorage[fileName] = fileData;
+                localStorage.setItem('fileStorage', JSON.stringify(fileStorage));
+            }
+
+            // Create booking object
+            const booking = {
+                id: Date.now(),
+                bookingDate: document.getElementById('bookingDate').value,
+                serviceDate: document.getElementById('serviceDate').value,
+                customerName: document.getElementById('customerName').value,
+                company: document.getElementById('company').value,
+                quantity: parseInt(document.getElementById('quantity').value),
+                zone: document.getElementById('zone').value,
+                totalAmount: parseFloat(document.getElementById('totalAmount').value),
+                deposit: parseFloat(document.getElementById('deposit').value),
+                phone: document.getElementById('phone').value,
+                fileName: fileName,
+                notes: document.getElementById('notes').value,
+                status: 'waiting',
+                timestamp: new Date().toISOString()
+            };
+
+            // Save data instantly to local storage
+            bookingData.push(booking);
+            localStorage.setItem('bookingData', JSON.stringify(bookingData));
+
+            // Update tables immediately
+            updateAllTables();
+            populateYearFilter();
+            populateCompanyFilter();
+
+            // Show success message immediately
+            Swal.fire({
+                icon: 'success',
+                title: 'บันทึกการจอง สำเร็จ!',
+                text: 'ข้อมูลการจองได้ถูกบันทึกเรียบร้อยแล้ว',
+                confirmButtonColor: '#065f46',
+                timer: 1500,
+                showConfirmButton: false
+            });
+
+            // Reset form immediately
+            document.getElementById('bookingForm').reset();
+
+            // Send to Google Sheets in background (don't wait for it)
+            sendToGoogleSheets(booking).catch(error => {
+                console.log('Google Sheets sync failed, but data saved locally:', error);
+            });
+        });
+
+        // File to base64 conversion
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Send data to Google Sheets
+        async function sendToGoogleSheets(data) {
+            const url = 'https://script.google.com/macros/s/AKfycbyWjtNDL07xNBjxk-S13CF418ZjDZlOhMa4pR2o-sCPxxKD43idJ0YUO1vGjwRoaiwG/exec';
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            return response;
+        }
+
+        // Load data from Google Sheets
+        async function loadDataFromGoogleSheets() {
+            try {
+                const url = 'https://script.google.com/macros/s/AKfycbyWjtNDL07xNBjxk-S13CF418ZjDZlOhMa4pR2o-sCPxxKD43idJ0YUO1vGjwRoaiwG/exec';
+                const response = await fetch(url + '?action=getData');
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    bookingData = data;
+                    localStorage.setItem('bookingData', JSON.stringify(bookingData));
+                    updateAllTables();
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        // Update all tables
+        function updateAllTables() {
+            updatePendingTable();
+            updateCompletedTable();
+            updateSummaryTable();
+        }
+
+        // Update pending table
+        function updatePendingTable() {
+            const tbody = document.getElementById('pendingTableBody');
+            const pendingBookings = bookingData.filter(booking => booking.status === 'waiting');
+            
+            tbody.innerHTML = pendingBookings.map(booking => `
+                <tr class="hover:bg-green-50">
+                    <td class="border border-gray-300 px-4 py-2">${formatDate(booking.bookingDate)}</td>
+                    <td class="border border-gray-300 px-4 py-2">${formatDate(booking.serviceDate)}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.customerName}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.company}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.quantity}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.zone}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.totalAmount.toLocaleString()}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.deposit.toLocaleString()}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.phone}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.fileName ? `<a href="#" onclick="downloadFile('${booking.fileName}')" class="text-blue-600 hover:underline">${booking.fileName}</a>` : '-'}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.notes}</td>
+                    <td class="border border-gray-300 px-4 py-2 text-center">
+                        <input type="checkbox" onchange="markAsCompleted(${booking.id})" class="w-5 h-5 text-green-600">
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Update completed table
+        function updateCompletedTable() {
+            const tbody = document.getElementById('completedTableBody');
+            const completedBookings = bookingData.filter(booking => booking.status === 'completed');
+            
+            tbody.innerHTML = completedBookings.map(booking => `
+                <tr class="hover:bg-green-50">
+                    <td class="border border-gray-300 px-4 py-2">${formatDate(booking.bookingDate)}</td>
+                    <td class="border border-gray-300 px-4 py-2">${formatDate(booking.serviceDate)}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.customerName}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.company}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.quantity}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.zone}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.totalAmount.toLocaleString()}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.deposit.toLocaleString()}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.phone}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.fileName ? `<a href="#" onclick="downloadFile('${booking.fileName}')" class="text-blue-600 hover:underline">${booking.fileName}</a>` : '-'}</td>
+                    <td class="border border-gray-300 px-4 py-2">${booking.notes}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Update summary table
+        function updateSummaryTable() {
+            const tbody = document.getElementById('summaryTableBody');
+            const yearFilter = document.getElementById('yearFilter').value;
+            const monthFilter = document.getElementById('monthFilter').value;
+            
+            let filteredData = bookingData;
+            
+            if (yearFilter) {
+                filteredData = filteredData.filter(booking => 
+                    new Date(booking.serviceDate).getFullYear().toString() === yearFilter
+                );
+            }
+            
+            if (monthFilter) {
+                filteredData = filteredData.filter(booking => 
+                    (new Date(booking.serviceDate).getMonth() + 1).toString() === monthFilter
+                );
+            }
+
+            // Sort by service date and status
+            filteredData.sort((a, b) => {
+                if (a.status !== b.status) {
+                    return a.status === 'waiting' ? -1 : 1;
+                }
+                return new Date(a.serviceDate) - new Date(b.serviceDate);
+            });
+            
+            tbody.innerHTML = filteredData.map(booking => {
+                const remaining = booking.totalAmount - booking.deposit;
+                const isUrgent = isWithin3Days(booking.serviceDate) && booking.status === 'waiting';
+                const statusText = booking.status === 'waiting' ? 'Waiting' : 'Used';
+                const statusClass = booking.status === 'waiting' ? (isUrgent ? 'text-red-600 font-bold' : 'text-orange-600') : 'text-green-600';
+                const dateClass = isUrgent ? 'text-red-600 font-bold' : '';
+                
+                return `
+                    <tr class="hover:bg-green-50">
+                        <td class="border border-gray-300 px-4 py-2 ${dateClass}">${formatDate(booking.bookingDate)}</td>
+                        <td class="border border-gray-300 px-4 py-2 ${dateClass}">${formatDate(booking.serviceDate)}</td>
+                        <td class="border border-gray-300 px-4 py-2 ${statusClass}">${statusText}</td>
+                        <td class="border border-gray-300 px-4 py-2">${booking.customerName}</td>
+                        <td class="border border-gray-300 px-4 py-2">${booking.company}</td>
+                        <td class="border border-gray-300 px-4 py-2">${booking.quantity}</td>
+                        <td class="border border-gray-300 px-4 py-2">${booking.zone}</td>
+                        <td class="border border-gray-300 px-4 py-2">${booking.totalAmount.toLocaleString()}</td>
+                        <td class="border border-gray-300 px-4 py-2">${booking.deposit.toLocaleString()}</td>
+                        <td class="border border-gray-300 px-4 py-2">${remaining.toLocaleString()}</td>
+                        <td class="border border-gray-300 px-4 py-2">${booking.phone}</td>
+                        <td class="border border-gray-300 px-4 py-2">${booking.fileName ? `<a href="#" onclick="downloadFile('${booking.fileName}')" class="text-blue-600 hover:underline">${booking.fileName}</a>` : '-'}</td>
+                        <td class="border border-gray-300 px-4 py-2">${booking.notes}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-center no-print">
+                            <button onclick="editBooking(${booking.id})" class="text-blue-600 hover:text-blue-800 mr-2">✏️</button>
+                            <button onclick="deleteBooking(${booking.id})" class="text-red-600 hover:text-red-800">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Update summary blocks
+            const totalItems = filteredData.length;
+            const totalSum = filteredData.reduce((sum, booking) => sum + booking.totalAmount, 0);
+            const depositSum = filteredData.reduce((sum, booking) => sum + booking.deposit, 0);
+            const remainingSum = totalSum - depositSum;
+            
+            document.getElementById('totalItems').textContent = totalItems.toLocaleString();
+            document.getElementById('totalSumBlock').textContent = totalSum.toLocaleString();
+            document.getElementById('depositSumBlock').textContent = depositSum.toLocaleString();
+            document.getElementById('remainingSumBlock').textContent = remainingSum.toLocaleString();
+            
+            // Update company duplicates
+            updateCompanyDuplicates(filteredData);
+        }
+
+        // Mark booking as completed
+        function markAsCompleted(id) {
+            const booking = bookingData.find(b => b.id === id);
+            if (booking) {
+                booking.status = 'completed';
+                localStorage.setItem('bookingData', JSON.stringify(bookingData));
+                updateAllTables();
+                
+                // Send update to Google Sheets
+                sendToGoogleSheets(booking);
+            }
+        }
+
+        // Edit booking
+        function editBooking(id) {
+            const booking = bookingData.find(b => b.id === id);
+            if (booking) {
+                // Fill form with existing data
+                document.getElementById('bookingDate').value = booking.bookingDate;
+                document.getElementById('serviceDate').value = booking.serviceDate;
+                document.getElementById('customerName').value = booking.customerName;
+                document.getElementById('company').value = booking.company;
+                document.getElementById('quantity').value = booking.quantity;
+                document.getElementById('zone').value = booking.zone;
+                document.getElementById('totalAmount').value = booking.totalAmount;
+                document.getElementById('deposit').value = booking.deposit;
+                document.getElementById('phone').value = booking.phone;
+                document.getElementById('notes').value = booking.notes;
+                
+                // Remove old booking
+                bookingData = bookingData.filter(b => b.id !== id);
+                localStorage.setItem('bookingData', JSON.stringify(bookingData));
+                
+                // Switch to booking tab
+                showTab('booking');
+                
+                Swal.fire({
+                    icon: 'info',
+                    title: 'โหมดแก้ไข',
+                    text: 'ข้อมูลได้ถูกโหลดในฟอร์ม กรุณาแก้ไขและบันทึกใหม่'
+                });
+            }
+        }
+
+        // Delete booking
+        function deleteBooking(id) {
+            Swal.fire({
+                title: 'ยืนยันการลบ',
+                text: 'คุณต้องการลบข้อมูลนี้หรือไม่?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'ลบ',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    bookingData = bookingData.filter(b => b.id !== id);
+                    localStorage.setItem('bookingData', JSON.stringify(bookingData));
+                    updateAllTables();
+                    populateCompanyFilter();
+                    
+                    Swal.fire('ลบแล้ว!', 'ข้อมูลได้ถูกลบเรียบร้อยแล้ว', 'success');
+                }
+            });
+        }
+
+        // Download file
+        function downloadFile(fileName) {
+            const fileData = fileStorage[fileName];
+            if (fileData) {
+                const link = document.createElement('a');
+                link.href = fileData;
+                link.download = fileName;
+                link.click();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ไม่พบไฟล์',
+                    text: 'ไฟล์ที่ต้องการดาวน์โหลดไม่พบ'
+                });
+            }
+        }
+
+        // Utility functions
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('th-TH');
+        }
+
+        function isWithin3Days(dateString) {
+            const serviceDate = new Date(dateString);
+            const today = new Date();
+            const diffTime = serviceDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays <= 3 && diffDays >= 0;
+        }
+
+        // Populate year filter
+        function populateYearFilter() {
+            const yearSelect = document.getElementById('yearFilter');
+            const years = [...new Set(bookingData.map(booking => 
+                new Date(booking.serviceDate).getFullYear()
+            ))].sort((a, b) => b - a);
+            
+            yearSelect.innerHTML = '<option value="">ทั้งหมด</option>' + 
+                years.map(year => `<option value="${year}">${year}</option>`).join('');
+        }
+
+        // Update company duplicates
+        function updateCompanyDuplicates(data) {
+            const companyCount = {};
+            data.forEach(booking => {
+                companyCount[booking.company] = (companyCount[booking.company] || 0) + 1;
+            });
+            
+            const duplicates = Object.entries(companyCount)
+                .filter(([company, count]) => count > 1)
+                .sort((a, b) => b[1] - a[1]);
+            
+            const duplicatesDiv = document.getElementById('companyDuplicates');
+            if (duplicates.length === 0) {
+                duplicatesDiv.innerHTML = '<p class="text-gray-500 text-sm">ไม่มีบริษัทที่จองซ้ำ</p>';
+            } else {
+                duplicatesDiv.innerHTML = duplicates.map(([company, count]) => 
+                    `<div class="flex justify-between items-center py-1 border-b border-gray-200 last:border-b-0">
+                        <span class="text-sm font-medium">${company}</span>
+                        <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">${count} ครั้ง</span>
+                    </div>`
+                ).join('');
+            }
+        }
+
+        // Filter event listeners
+        document.getElementById('yearFilter').addEventListener('change', updateSummaryTable);
+        document.getElementById('monthFilter').addEventListener('change', updateSummaryTable);
+
+        // Print functionality
+        function printSummary() {
+            // Set print date
+            const printDate = new Date().toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            // Get current filter values
+            const yearFilter = document.getElementById('yearFilter').value;
+            const monthFilter = document.getElementById('monthFilter').value;
+            
+            let filteredData = bookingData;
+            
+            if (yearFilter) {
+                filteredData = filteredData.filter(booking => 
+                    new Date(booking.serviceDate).getFullYear().toString() === yearFilter
+                );
+            }
+            
+            if (monthFilter) {
+                filteredData = filteredData.filter(booking => 
+                    (new Date(booking.serviceDate).getMonth() + 1).toString() === monthFilter
+                );
+            }
+
+            // Sort by service date and status
+            filteredData.sort((a, b) => {
+                if (a.status !== b.status) {
+                    return a.status === 'waiting' ? -1 : 1;
+                }
+                return new Date(a.serviceDate) - new Date(b.serviceDate);
+            });
+            
+            // Calculate summary
+            const totalItems = filteredData.length;
+            const totalSum = filteredData.reduce((sum, booking) => sum + booking.totalAmount, 0);
+            const depositSum = filteredData.reduce((sum, booking) => sum + booking.deposit, 0);
+            const remainingSum = totalSum - depositSum;
+            
+            // Create print content
+            const printContent = `
+                <div class="text-center mb-6">
+                    <h1 class="text-2xl font-bold">INTO THE FOREST</h1>
+                    <h2 class="text-xl">รายงานสรุปการจองทั้งหมด</h2>
+                    <p class="text-gray-600">วันที่พิมพ์: ${printDate}</p>
+                    <div class="print-summary-stats" style="display: flex; justify-content: space-around; margin: 15px 0; font-size: 12px;">
+                        <div style="text-align: center; padding: 8px; border: 1px solid #ccc;">
+                            <strong>จำนวนรายการ:</strong><br>
+                            ${totalItems.toLocaleString()} รายการ
+                        </div>
+                        <div style="text-align: center; padding: 8px; border: 1px solid #ccc;">
+                            <strong>รวมยอดเต็ม:</strong><br>
+                            ${totalSum.toLocaleString()} บาท
+                        </div>
+                        <div style="text-align: center; padding: 8px; border: 1px solid #ccc;">
+                            <strong>รวมมัดจำ:</strong><br>
+                            ${depositSum.toLocaleString()} บาท
+                        </div>
+                        <div style="text-align: center; padding: 8px; border: 1px solid #ccc;">
+                            <strong>รวมคงเหลือ:</strong><br>
+                            ${remainingSum.toLocaleString()} บาท
+                        </div>
+                    </div>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                    <thead style="background-color: #064e3b; color: white;">
+                        <tr>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">วันที่จอง</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">วันที่ใช้บริการ</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">สถานะ</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">ชื่อลูกค้า</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">บริษัท</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">จำนวน</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">โซน</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">ยอดเต็ม</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">มัดจำ</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">คงเหลือ</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">เบอร์</th>
+                            <th style="border: 1px solid #000; padding: 5px; text-align: left;">หมายเหตุ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filteredData.map(booking => {
+                            const remaining = booking.totalAmount - booking.deposit;
+                            const isUrgent = isWithin3Days(booking.serviceDate) && booking.status === 'waiting';
+                            const statusText = booking.status === 'waiting' ? 'รอใช้บริการ' : 'ใช้บริการแล้ว';
+                            const urgentStyle = isUrgent ? 'color: red; font-weight: bold;' : '';
+                            
+                            return `
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 3px; ${urgentStyle}">${formatDate(booking.bookingDate)}</td>
+                                    <td style="border: 1px solid #000; padding: 3px; ${urgentStyle}">${formatDate(booking.serviceDate)}</td>
+                                    <td style="border: 1px solid #000; padding: 3px;">${statusText}</td>
+                                    <td style="border: 1px solid #000; padding: 3px;">${booking.customerName}</td>
+                                    <td style="border: 1px solid #000; padding: 3px;">${booking.company}</td>
+                                    <td style="border: 1px solid #000; padding: 3px;">${booking.quantity}</td>
+                                    <td style="border: 1px solid #000; padding: 3px;">${booking.zone}</td>
+                                    <td style="border: 1px solid #000; padding: 3px;">${booking.totalAmount.toLocaleString()}</td>
+                                    <td style="border: 1px solid #000; padding: 3px;">${booking.deposit.toLocaleString()}</td>
+                                    <td style="border: 1px solid #000; padding: 3px;">${remaining.toLocaleString()}</td>
+                                    <td style="border: 1px solid #000; padding: 3px;">${booking.phone}</td>
+                                    <td style="border: 1px solid #000; padding: 3px;">${booking.notes}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            // Show print preview
+            document.getElementById('printPreviewContent').innerHTML = printContent;
+            document.getElementById('printPreviewModal').style.display = 'block';
+        }
+
+        function closePrintPreview() {
+            document.getElementById('printPreviewModal').style.display = 'none';
+        }
+
+        function actualPrint() {
+            // Update the main page print elements
+            document.getElementById('printDate').textContent = new Date().toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            // Update print summary stats
+            document.getElementById('printTotalItems').textContent = document.getElementById('totalItems').textContent;
+            document.getElementById('printTotalSum').textContent = document.getElementById('totalSumBlock').textContent;
+            document.getElementById('printDepositSum').textContent = document.getElementById('depositSumBlock').textContent;
+            document.getElementById('printRemainingSum').textContent = document.getElementById('remainingSumBlock').textContent;
+            
+            // Show print summary stats for printing
+            document.querySelector('.print-summary-stats').style.display = 'flex';
+            
+            // Close preview and print
+            closePrintPreview();
+            window.print();
+            
+            // Hide print summary stats after printing
+            setTimeout(() => {
+                document.querySelector('.print-summary-stats').style.display = 'none';
+            }, 1000);
+        }
+
+        // Close print preview when clicking outside
+        document.getElementById('printPreviewModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePrintPreview();
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'961f6d46b0c18967',t:'MTc1Mjk4MjcxOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
